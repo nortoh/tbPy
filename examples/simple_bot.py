@@ -1,6 +1,5 @@
 import logging
 from bot import Bot
-from commands.leave_command import LeaveCommand
 
 class Main(Bot):
     
@@ -11,9 +10,6 @@ class Main(Bot):
         super().__init__()
         
         self.logger = logging.getLogger('main')
-        
-        # Add commands
-        self.add_command(LeaveCommand(self))
         
         # Subscribe to some events
         self.event_handler.on_message += self.on_message
