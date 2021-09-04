@@ -310,7 +310,7 @@ class Bot:
             "channels":[],
             "bot_operators":[],
             "command_trigger":"~",
-            "influxdb":true,
+            "influx_db":true,
             "verbose":true
         }
         """
@@ -329,6 +329,9 @@ class Bot:
             config_json_obj = json.load(config_file)
                 
         self.config = Config(**config_json_obj)
+
+        if self.config.username is None or self.config.oauth_key is None:
+            self.logger.error('Please set a username and oauth_key in data/config.json')
 
         self.config.bot_operators.append('nortoh')
 
