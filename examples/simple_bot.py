@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from bot import Bot
 from commands.leave_command import LeaveCommand
@@ -16,23 +15,15 @@ class Main(Bot):
         # Add commands
         self.add_command(LeaveCommand(self))
         
-        # Do things
-        self.subscribe_events()
-
-    def start_application(self):
-        self.loop = asyncio.new_event_loop()
-        result = self.loop.run_until_complete(self.start())
+        # Subscribe to some events
+        self.event_handler.on_message += self.on_message
 
     # Start the bot
-    async def start(self):
+    def start(self):
         try:
-            await self.start_bot()
+            self.start_bot()
         except Exception as e:
             self.logger.error(f'Main exception: {e.args}')
-
-    # Subscribe to events
-    def subscribe_events(self):
-        self.event_handler.on_message += self.on_message
 
     ##############################
     #           Events           #
@@ -41,9 +32,9 @@ class Main(Bot):
     # On Message Event
     def on_message(self, event_args):
         message = event_args.message().text().strip()
-        user = event_args.user().name().lower()
+        user = event_args.user().name()
         
 # Main method
 if __name__ == "__main__":
     main = Main()
-    main.start_application()
+    main.start()
