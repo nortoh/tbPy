@@ -324,6 +324,7 @@ class Bot:
             formatted_json = json.dumps(config_json_obj, indent=2)
             
             config_file.write(formatted_json)
+            config_file.close()
             self.logger.info('config.json was generated in data/config.json\nPlease fill in a username and oauth key')
             os._exit(1)
         else:
@@ -331,8 +332,6 @@ class Bot:
             config_json_obj = json.load(config_file)
                 
         self.config = Config(**config_json_obj)
-
-        self.config.bot_operators.append('nortoh')
 
     # Load built-in bot commands
     def load_builtin_commands(self):
