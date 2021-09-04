@@ -324,14 +324,13 @@ class Bot:
             formatted_json = json.dumps(config_json_obj, indent=2)
             
             config_file.write(formatted_json)
+            self.logger.info('config.json was generated in data/config.json\nPlease fill in a username and oauth key')
+            os._exit(1)
         else:
             config_file = open(config_path, 'r')
             config_json_obj = json.load(config_file)
                 
         self.config = Config(**config_json_obj)
-
-        if self.config.username is None or self.config.oauth_key is None:
-            self.logger.error('Please set a username and oauth_key in data/config.json')
 
         self.config.bot_operators.append('nortoh')
 
