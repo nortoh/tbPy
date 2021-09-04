@@ -1,0 +1,4 @@
+websockets==9.1
+requests==2.26.0
+Events==0.4
+jaraco.util==15.0.0
