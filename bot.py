@@ -1,59 +1,24 @@
 import asyncio
 import time
 import os
+from os import path
+from socket import error as SocketError
 import json
 import string
 import sqlite3
 import logging
 import datetime
 from datetime import date
+import socket
 
-from os import path
-from socket import error as SocketError
-from utils.stringutils import StringUtils
-from utils.resettable_timer import RepeatingTimer
-from utils.log import Log
-
-from chat.message import Message
-from chat.command_message import CommandMessage
-from chat.channel import Channel
-from chat.user import User
-from chat.tag import Tag
-from chat.word_handler import WordHandler
-
-from commands.command import Command
-from commands.test_command import TestCommand
-
-from bot_events.event_handler import EventHandler
-from bot_events.connected_event import ConnectedEvent
-from bot_events.disconnected_event import DisconnectedEvent
-from bot_events.startup_event import StartUpEvent
-from bot_events.ping_event import PingEvent
-from bot_events.join_event import JoinEvent
-from bot_events.message_event import MessageEvent
-from bot_events.command_event import CommandEvent
-from bot_events.clear_message_event import ClearMessageEvent
-from bot_events.part_event import PartEvent
-from bot_events.notice_event import NoticeEvent
-from bot_events.user_notice_event import UserNoticeEvent
-from bot_events.user_state_event import UserStateEvent
-from bot_events.room_state_event import RoomStateEvent
-from bot_events.host_target_event import HostTargetEvent
-from bot_events.error_event import ErrorEvent
-from bot_events.newday_event import NewdayEvent
-from bot_events.reconnect_event import ReconnectEvent
-
-
-from enum_types.notice_type import NoticeType
-from enum_types.user_notice_type import UserNoticeType
-from enum_types.irc_type import IRCType
-
-from net.twitch.twitch_irc import TwitchIRC
-from net.twitch.twitch_ws import TwitchWS
-
+import utils
+import chat
+import commands
+import bot_events
+import enum_types
+import net.twitch
 from jaraco.stream import buffer
 from config import Config
-import socket
 
 class Bot:
     
@@ -61,7 +26,7 @@ class Bot:
     def __init__(self):
         self.lib_version = 1.0
 
-        self.logger = Log('main').setup_custom_logger()
+        self.logger = utils.Log('main').setup_custom_logger()
         self.twitch_disconnects = 0
         self.start_day = int(date.today().strftime('%d'))
 
@@ -69,10 +34,10 @@ class Bot:
         self.commands = dict()
 
         # Initalize Event Handler
-        self.event_handler = EventHandler()
+        self.event_handler = bot_events.EventHandler()
 
         # Initalize Word Handler
-        self.word_handler = WordHandler()
+        self.word_handler = chat.WordHandler()
 
         # Load configs, commands, and database(?)
         self.load_configurations()
@@ -96,7 +61,7 @@ class Bot:
         self.buffer = buffer.LineBuffer()
 
         # Fire!
-        self.event_handler.on_startup(StartUpEvent())
+        self.event_handler.on_startup(bot_events.StartUpEvent())
 
         # Connect to Twitch
         await self.connect_to_twitch()
@@ -106,7 +71,7 @@ class Bot:
         self.logger.info(f'Connecting to Twitch [{self.config.username}]')
 
         # TCP socket and data stream
-        self.twitch_irc = TwitchIRC(self)
+        self.twitch_irc = net.twitch.TwitchIRC(self)
         await self.twitch_irc.connect()
 
         self.logger.info(f'Connected to Twitch')
@@ -132,7 +97,7 @@ class Bot:
                 # If data was empty
                 if not new_data:
                     self.logger.error('No longer receiving data from socket')
-                    self.event_handler.on_error(ErrorEvent(f'No longer receiving data from socket'))
+                    self.event_handler.on_error(bot_events.ErrorEvent(f'No longer receiving data from socket'))
                     self.reconnect_flag = True
                     break
 
@@ -156,7 +121,7 @@ class Bot:
                 self.logger.error(f'SocketError: {e.errno}')
 
                 # Throw error
-                self.event_handler.on_error(ErrorEvent(f'SocketError: {e.errno}'))
+                self.event_handler.on_error(bot_events.ErrorEvent(f'SocketError: {e.errno}'))
                 self.reconnect_flag = True
                 break
         
@@ -167,7 +132,7 @@ class Bot:
         self.connected = False
 
         # Fire!
-        self.event_handler.on_disconnected(DisconnectedEvent())
+        self.event_handler.on_disconnected(bot_events.DisconnectedEvent())
 
     # Process IRC line
     async def process_data(self, line):
@@ -176,7 +141,7 @@ class Bot:
         # If we receive 001 msg code
         if await self.expect_code(irc_parameters, '001'):
             self.connected = True
-            self.event_handler.on_connected(ConnectedEvent())
+            self.event_handler.on_connected(bot_events.ConnectedEvent())
 
 
         # Do nothing until we've read the end of the MOTD
@@ -192,34 +157,34 @@ class Bot:
         irc_type = await self.convert_2_type(line)
 
         # PING
-        if irc_type == IRCType.PING:
+        if irc_type == enum_types.IRCType.PING:
             await self.handle_pong(irc_parameters)
         # PRIVMSG
-        elif irc_type == IRCType.PRIVMSG:
+        elif irc_type == enum_types.IRCType.PRIVMSG:
             await self.handle_message(irc_parameters)
         # JOIN
-        elif irc_type == IRCType.JOIN:
+        elif irc_type == enum_types.IRCType.JOIN:
             await self.handle_join(line, irc_parameters)
         # PART
-        elif irc_type == IRCType.PART:
+        elif irc_type == enum_types.IRCType.PART:
             await self.handle_part(line, irc_parameters)
         # NOTICE
-        elif irc_type == IRCType.NOTICE:
+        elif irc_type == enum_types.IRCType.NOTICE:
             await self.handle_notice(irc_parameters)
         # USERNOTICE
-        elif irc_type == IRCType.USERNOTICE:
+        elif irc_type == enum_types.IRCType.USERNOTICE:
             await self.handle_user_notice(irc_parameters)
         # USERSTATE
-        elif irc_type == IRCType.USERSTATE:
+        elif irc_type == enum_types.IRCType.USERSTATE:
             await self.handle_user_state(irc_parameters)
         # ROOMSTATE
-        elif irc_type == IRCType.ROOMSTATE:
+        elif irc_type == enum_types.IRCType.ROOMSTATE:
             await self.handle_room_state(irc_parameters)
         # CLEARMSG
-        elif irc_type == IRCType.CLEARMSG:
+        elif irc_type == enum_types.IRCType.CLEARMSG:
             await self.handle_clear_message(irc_parameters)
         # HOST TARGET
-        elif irc_type == IRCType.HOSTTARGET:
+        elif irc_type == enum_types.IRCType.HOSTTARGET:
             await self.handle_host_target(irc_parameters)
 
     # Send twitch user's authentication details and request full capabilities
@@ -246,7 +211,7 @@ class Bot:
         self.logger.info('Starting timers')
 
         # Event timer
-        self.event_timer = RepeatingTimer(1, self.event_tick)
+        self.event_timer = utils.RepeatingTimer(1, self.event_tick)
         self.event_timer.start()
 
     def event_tick(self):
@@ -259,14 +224,14 @@ class Bot:
         if current_day != self.start_day:
             
             # Fire!
-            self.event_handler.on_newday(NewdayEvent())
+            self.event_handler.on_newday(bot_events.NewdayEvent())
 
             # Remove old handlers
             for handler in self.logger.handlers[:]:
                 self.logger.removeHandler(handler)
 
             # Start new log file            
-            self.logger = Log('main').setup_custom_logger()
+            self.logger = utils.Log('main').setup_custom_logger()
 
             self.start_day = current_day
 
@@ -282,7 +247,7 @@ class Bot:
             sleep_time = self.calculate_expo_backoff() * 10
 
             # Fire!
-            self.event_handler.on_reconnect(ReconnectEvent(sleep_time))
+            self.event_handler.on_reconnect(bot_events.ReconnectEvent(sleep_time))
 
             # Reset the reconnect flag
             self.reconnect_flag = False
@@ -335,7 +300,7 @@ class Bot:
 
     # Load built-in bot commands
     def load_builtin_commands(self):
-        self.add_command(TestCommand())
+        self.add_command(commands.TestCommand())
 
     ##############################
     #           Events           #
@@ -344,7 +309,7 @@ class Bot:
     # Returns a ping reply with a pong and fires it
     async def handle_pong(self, irc_parameters):
         await self.twitch_irc.send("PONG :tmi.twitch.tv")
-        self.event_handler.on_ping(PingEvent())
+        self.event_handler.on_ping(bot_events.PingEvent())
 
     # Builds a message event and fires it
     async def handle_message(self, irc_parameters):
@@ -376,8 +341,8 @@ class Bot:
                 name = str.strip(irc_parameters[4][2:]).lower()
 
                 # Command message and event
-                command_message = CommandMessage(name, command_parameters, channel, user, time.time())
-                command_event = CommandEvent(user, channel, command_message, self.twitch_irc)
+                command_message = chat.CommandMessage(name, command_parameters, channel, user, time.time())
+                command_event = bot_events.CommandEvent(user, channel, command_message, self.twitch_irc)
 
                 # Handle built-in commands
                 await self.handle_command(command_event)
@@ -387,20 +352,20 @@ class Bot:
             # Channel Message
             else:                
                 # Build message object
-                message_obj = Message(tag.get('id'), message, channel, user, time.time(), tag)
+                message_obj = chat.Message(tag.get('id'), message, channel, user, time.time(), tag)
                 
                 # Handle word
                 self.word_handler.handle_message(message_obj)
 
                 # Construct private message event
-                privmsg_event = MessageEvent(user, channel, message_obj)
+                privmsg_event = bot_events.MessageEvent(user, channel, message_obj)
                 
                 # Fire!
                 self.event_handler.on_message(privmsg_event)
         
         # User has spoken prior
         else:
-            user = User(display_name)
+            user = chat.User(display_name)
             user.tag = tag
             channel.add_user(user)
 
@@ -417,8 +382,8 @@ class Bot:
                 name = str.strip(irc_parameters[4][2:]).lower()
 
                 # Build command message and event
-                command_message = CommandMessage(name, command_parameters, channel, user, time.time())
-                command_event = CommandEvent(user, channel, command_message, self.twitch_irc)
+                command_message = chat.CommandMessage(name, command_parameters, channel, user, time.time())
+                command_event = bot_events.CommandEvent(user, channel, command_message, self.twitch_irc)
 
                 # Handle built-in commands
                 await self.handle_command(command_event)
@@ -429,13 +394,13 @@ class Bot:
             # Channel Message
             else:                
                 # Build message object
-                message_obj = Message(tag.get('id'), message, channel, user, time.time(), tag)
+                message_obj = chat.Message(tag.get('id'), message, channel, user, time.time(), tag)
 
                 # Handle word
                 self.word_handler.handle_message(message_obj)
 
                 # Construct private message event
-                privmsg_event = MessageEvent(user, channel, message_obj)
+                privmsg_event = bot_events.MessageEvent(user, channel, message_obj)
                 
                 # Fire!
                 self.event_handler.on_message(privmsg_event)
@@ -448,11 +413,11 @@ class Bot:
 
         # If user has not been identified yet
         if user is None:
-            user = User(pd[0][1:])
+            user = chat.User(pd[0][1:])
             channel.add_user(user)
 
         # Create join event
-        join_event = JoinEvent(user, channel)
+        join_event = bot_events.JoinEvent(user, channel)
 
         # Fire!
         self.event_handler.on_join(join_event)
@@ -467,18 +432,18 @@ class Bot:
         channel.remove_user(pd[0][1:])
         
         # Build event
-        part_event = PartEvent(user, channel)
+        part_event = bot_events.PartEvent(user, channel)
 
         # Fire!
         self.event_handler.on_part(part_event)
 
     # Builds a notice event and fires it
     async def handle_notice(self, irc_parameters):
-        tag = Tag(irc_parameters[0])
+        tag = chat.Tag(irc_parameters[0])
         channel = await self.get_channel(irc_parameters[3])
 
         try:
-            notice_type = NoticeType[tag.get('msg-id').upper()]
+            notice_type = enum_types.NoticeType[tag.get('msg-id').upper()]
         except KeyError as e:
             self.logger.error(f'Notice Type error for {irc_parameters}')
             
@@ -486,14 +451,14 @@ class Bot:
         notice_message = await self.concat_at(4, len(irc_parameters), irc_parameters)
 
         # Build event
-        notice_event = NoticeEvent(notice_type, channel, tag, notice_message)
+        notice_event = bot_events.NoticeEvent(notice_type, channel, tag, notice_message)
 
         # Fire!
         self.event_handler.on_notice(notice_event)
 
     # Builds a user notice event and fires it
     async def handle_user_notice(self, irc_parameters):
-        tag = Tag(irc_parameters[0])
+        tag = chat.Tag(irc_parameters[0])
 
         # Skip user notices if it's for the bots
         if tag.get('display-name') == self.config.username: return
@@ -504,7 +469,7 @@ class Bot:
         try:
             # Get user notice type from tag
             try:
-                user_notice_type = NoticeType[tag.get('msg-id').upper()]
+                user_notice_type = enum_types.NoticeType[tag.get('msg-id').upper()]
             except KeyError as e:
                 self.logger.error(f'User Notice Type error for {irc_parameters}')
 
@@ -512,12 +477,12 @@ class Bot:
 
             # If sender has been seen before
             if sender is not None:
-                user_notice_event = UserNoticeEvent(user_notice_type, channel, sender, tag, user_notice_message)
+                user_notice_event = bot_events.UserNoticeEvent(user_notice_type, channel, sender, tag, user_notice_message)
                 
                 # Fire!
                 self.event_handler.on_user_notice(user_notice_event)
             else:
-                sender = User(tag.get('display-name'))
+                sender = chat.User(tag.get('display-name'))
                 channel.add_user(sender)
 
                 user_notice_event = UserNoticeEvent(user_notice_type, channel, sender, tag, user_notice_message)
@@ -529,43 +494,43 @@ class Bot:
 
     # Builds a user state event and fires it
     async def handle_user_state(self, irc_parameters):
-        tag = Tag(irc_parameters[0])
+        tag = chat.Tag(irc_parameters[0])
         channel = await self.get_channel(irc_parameters[3])
         
         # Build user event
-        user_state_event = UserStateEvent(channel, tag)
+        user_state_event = bot_events.UserStateEvent(channel, tag)
 
         # Fire!
         self.event_handler.on_user_state(user_state_event)
     
     # Builds a room state event and fires it
     async def handle_room_state(self, irc_parameters):
-        tag = Tag(irc_parameters[0])
+        tag = Tchat.ag(irc_parameters[0])
         channel = await self.get_channel(irc_parameters[3])
         channel.tag = tag
 
         # Build room state event
-        room_state_event = RoomStateEvent(channel)
+        room_state_event = bot_events.RoomStateEvent(channel)
 
         # Fire!
         self.event_handler.on_room_state(room_state_event)
     
     # Builds a clear message event and fires it
     async def handle_clear_message(self, irc_parameters):
-        tag = Tag(irc_parameters[0])
+        tag = chat.Tag(irc_parameters[0])
         channel = await self.get_channel(irc_parameters[3])
         user = channel.get_user(tag.get('login'))
 
         # If user is not seen in channel
         if user is None:
-            user = User(tag.get('login'))
+            user = chat.User(tag.get('login'))
             channel.add_user(user)
         
         # Get the message deleted
         deleted_message = await self.concat_at(4, len(irc_parameters), irc_parameters)
 
          # Build clear message event
-        clear_message_event = ClearMessageEvent(user, channel, tag, deleted_message)
+        clear_message_event = bot_events.ClearMessageEvent(user, channel, tag, deleted_message)
 
         # Fire!
         self.event_handler.on_clear_message(clear_message_event)
@@ -584,7 +549,7 @@ class Bot:
                 amount = int(irc_parameters[4])
 
         # Build host target event
-        host_target_event = HostTargetEvent(host_channel, hosted_channel, amount)
+        host_target_event = bot_events.HostTargetEvent(host_channel, hosted_channel, amount)
         
         # Fire!
         self.event_handler.on_host_target(host_target_event)
@@ -607,7 +572,7 @@ class Bot:
 
         # If the list is empty
         if self.channels is None:
-            channel = Channel(name)
+            channel = chat.Channel(name)
 
         # If the channel exists already
         elif name in self.channels:
@@ -615,7 +580,7 @@ class Bot:
             
         # If the channel does not exist
         else:
-            channel = Channel(name)
+            channel = chat.Channel(name)
             
         return channel
     
@@ -629,7 +594,7 @@ class Bot:
 
         # If the list is empty
         if self.channels is None:
-            channel = Channel(name)
+            channel = chat.Channel(name)
 
         # If the channel exists already
         elif name in self.channels:
@@ -637,7 +602,7 @@ class Bot:
             
         # If the channel does not exist
         else:
-            channel = Channel(name)
+            channel = chat.Channel(name)
             
         return channel
     
@@ -653,7 +618,7 @@ class Bot:
             await command.on_trigger(command_event)
 
     # Add command
-    def add_command(self, command: Command):
+    def add_command(self, command: commands.Command):
         # For each command name, add a seperate instance into the list
         for name in command.names():
 
@@ -662,7 +627,7 @@ class Bot:
                 self.commands[name] = command
 
     # Remove command
-    def remove_command(self, command: Command):
+    def remove_command(self, command: commands.Command):
         # For each command name, add a seperate instance into the list
         for name in command.names():
 
@@ -671,7 +636,7 @@ class Bot:
                 del self.commands[name]
     
     # Get a command by name
-    async def get_command(self, name) -> Command:
+    async def get_command(self, name) -> commands.Command:
         if name in self.commands.keys():
             return self.commands[name]
 
@@ -680,35 +645,35 @@ class Bot:
     ##############################
 
     # Covert IRC command to enum type
-    async def convert_2_type(self, line) -> IRCType:
+    async def convert_2_type(self, line) -> enum_types.IRCType:
         if 'PRIVMSG' in line:
-            return IRCType.PRIVMSG
+            return enum_types.IRCType.PRIVMSG
         elif 'JOIN' in line and 'PRIVMSG' not in line:
-            return IRCType.JOIN
+            return enum_types.IRCType.JOIN
         elif 'PART' in line and 'PRIVMSG' not in line:
-            return IRCType.PART
+            return enum_types.IRCType.PART
         elif 'PING' in line and 'PRIVMSG' not in line:
-            return IRCType.PING
+            return enum_types.IRCType.PING
         elif 'CAP' in line and 'PRIVMSG' not in line:
-            return IRCType.CAP
+            return enum_types.IRCType.CAP
         elif 'USERNOTICE' in line and 'PRIVMSG' not in line:
-            return IRCType.USERNOTICE
+            return enum_types.IRCType.USERNOTICE
         elif 'ROOMSTATE' in line and 'PRIVMSG' not in line:
-            return IRCType.ROOMSTATE
+            return enum_types.IRCType.ROOMSTATE
         elif 'USERSTATE' in line and 'PRIVMSG' not in line:
-            return IRCType.USERSTATE
+            return enum_types.IRCType.USERSTATE
         elif 'CLEARCHAT' in line and 'PRIVMSG' not in line:
-            return IRCType.CLEARCHAT
+            return enum_types.IRCType.CLEARCHAT
         elif 'CLEARMSG' in line and 'PRIVMSG' not in line:
-            return IRCType.CLEARMSG
+            return enum_types.IRCType.CLEARMSG
         elif 'HOSTTARGET' in line and 'PRIVMSG' not in line:
-            return IRCType.HOSTTARGET
+            return enum_types.IRCType.HOSTTARGET
         elif 'CTCP' in line and 'PRIVMSG' not in line:
-            return IRCType.CTCP
+            return enum_types.IRCType.CTCP
         elif 'RECONNECT' in line and 'PRIVMSG' not in line:
-            return IRCType.RECONNECT
+            return enum_types.IRCType.RECONNECT
         elif 'NOTICE' in line and 'PRIVMSG' not in line:
-            return IRCType.NOTICE
+            return enum_types.IRCType.NOTICE
             
     # Calculate exponetial backoff time for reconnecting
     def calculate_expo_backoff(self):
