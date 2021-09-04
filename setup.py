@@ -5,5 +5,5 @@ setup(
     description='Python Twitch Bot Library',
     author='nortoh',
     author_email='christian@christianhorton.me',
-    packages=['Events', 'sqlite3', 'psutil', 'influxdb', 'jaraco.stream']
+    packages=['Events', 'websockets', 'requests', 'jaraco.util']
 )
