@@ -1,10 +1,14 @@
 import logging
 import datetime
+import os
 
 class Log(object):
 
     def __init__(self, name):
         self.name = name
+
+        if not os.path.isdir('./logs'):
+            os.mkdir('./logs')
 
     def setup_custom_logger(self):
         formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
