@@ -294,8 +294,12 @@ class Bot:
     def load_configurations(self):
 
         # Configuration name
+        config_folder = './data'
         config_name = 'config.json'
-        config_path = path.join('./data', config_name)
+        config_path = path.join(config_folder, config_name)
+
+        if not os.path.isdir(config_folder):
+            os.mkdir(config_folder)
 
         # Configuration template
         config_json = """
