@@ -334,6 +334,10 @@ class Bot:
                 
         self.config = Config(**config_json_obj)
 
+        if not self.config.username or not self.config.oauth_key:
+            self.logger.error('Please fill in a username and oauth key')
+            exit(1)
+
     # Load built-in bot commands
     def load_builtin_commands(self):
         pass
