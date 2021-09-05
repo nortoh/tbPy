@@ -1,4 +1,4 @@
-from ..enum_types import SourceType
+from ..types import SourceType
 from abc import ABC, abstractmethod 
 import string
 

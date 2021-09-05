@@ -1,5 +1,5 @@
-from ..enum_types import EventType
-from ..bot_events import Event
+from ..types import EventType
+from ..events import Event
 
 class ShutdownEvent(Event):
 

@@ -1,5 +1,5 @@
-from ..enum_types import EventType
-from ..bot_events import Event
+from ..types import EventType
+from ..events import Event
 from ..chat import User
 from ..chat import Channel
 

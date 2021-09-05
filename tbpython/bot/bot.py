@@ -24,29 +24,29 @@ from ..misc import Log
 from ..misc import RepeatingTimer
 from ..misc import Config
 
-from ..bot_events.event_handler import EventHandler
-from ..bot_events.connected_event import ConnectedEvent
-from ..bot_events.disconnected_event import DisconnectedEvent
-from ..bot_events.startup_event import StartUpEvent
-from ..bot_events.ping_event import PingEvent
-from ..bot_events.join_event import JoinEvent
-from ..bot_events.message_event import MessageEvent
-from ..bot_events.command_event import CommandEvent
-from ..bot_events.clear_message_event import ClearMessageEvent
-from ..bot_events.part_event import PartEvent
-from ..bot_events.notice_event import NoticeEvent
-from ..bot_events.user_notice_event import UserNoticeEvent
-from ..bot_events.user_state_event import UserStateEvent
-from ..bot_events.room_state_event import RoomStateEvent
-from ..bot_events.host_target_event import HostTargetEvent
-from ..bot_events.error_event import ErrorEvent
-from ..bot_events.newday_event import NewdayEvent
-from ..bot_events.reconnect_event import ReconnectEvent
+from ..events.event_handler import EventHandler
+from ..events.connected_event import ConnectedEvent
+from ..events.disconnected_event import DisconnectedEvent
+from ..events.startup_event import StartUpEvent
+from ..events.ping_event import PingEvent
+from ..events.join_event import JoinEvent
+from ..events.message_event import MessageEvent
+from ..events.command_event import CommandEvent
+from ..events.clear_message_event import ClearMessageEvent
+from ..events.part_event import PartEvent
+from ..events.notice_event import NoticeEvent
+from ..events.user_notice_event import UserNoticeEvent
+from ..events.user_state_event import UserStateEvent
+from ..events.room_state_event import RoomStateEvent
+from ..events.host_target_event import HostTargetEvent
+from ..events.error_event import ErrorEvent
+from ..events.newday_event import NewdayEvent
+from ..events.reconnect_event import ReconnectEvent
 
 
-from ..enum_types.notice_type import NoticeType
-from ..enum_types.user_notice_type import UserNoticeType
-from ..enum_types.irc_type import IRCType
+from ..types.notice_type import NoticeType
+from ..types.user_notice_type import UserNoticeType
+from ..types.irc_type import IRCType
 
 from ..net.twitch.twitch_irc import TwitchIRC
 from ..net.twitch.twitch_ws import TwitchWS
