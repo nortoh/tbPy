@@ -1,5 +1,5 @@
-from ..enum_types import EventType
-from ..bot_events import Event
+from ..enum_types.event_type import EventType
+from ..bot_events.event import Event
 
 class ConnectedEvent(Event):
 

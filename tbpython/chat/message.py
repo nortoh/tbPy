@@ -1,8 +1,8 @@
 import string
 
-from . import Channel
-from . import User
-from . import Tag
+from .channel import Channel
+from .user import User
+from .tag import Tag
 
 class Message(object):
 

@@ -1,8 +1,8 @@
 import socket
 import logging
 
-from ....chat import Channel
-from . import TwitchConnection
+from ...chat.channel import Channel
+from .twitch_conn import TwitchConnection
 
 class TwitchIRC(TwitchConnection):
 

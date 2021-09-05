@@ -1,7 +1,7 @@
-from ..enum_types import EventType
-from ..bot_events import Event
-from ..chat import User
-from ..chat import Channel
+from ..enum_types.event_type import EventType
+from ..bot_events.event import Event
+from ..chat.user import User
+from ..chat.channel import Channel
 
 class JoinEvent(Event):
 

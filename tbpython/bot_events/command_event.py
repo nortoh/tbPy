@@ -1,10 +1,10 @@
-from ..enum_types import EventType
-from ..bot_events import Event
-from ..chat import User
-from ..chat import Channel
-from ..chat import Message
-from ..chat import CommandMessage
-from ..net.twitch import TwitchIRC
+from ..enum_types.event_type import EventType
+from ..bot_events.event import Event
+from ..chat.user import User
+from ..chat.channel import Channel
+from ..chat.message import Message
+from ..chat.command_message import CommandMessage
+from ..net.twitch.twitch_irc import TwitchIRC
 import string
 
 class CommandEvent(Event):

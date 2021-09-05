@@ -1,6 +1,6 @@
-import string
 from ..enum_types import SourceType
 from abc import ABC, abstractmethod 
+import string
 
 class Command(ABC):
     

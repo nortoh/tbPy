@@ -1,7 +1,7 @@
 import string
 
-from . import Channel
-from . import User
+from .channel import Channel
+from .user import User
 
 class CommandMessage(object):
 

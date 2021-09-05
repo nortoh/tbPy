@@ -1,8 +1,8 @@
-from ..bot_events import Event
-from ..enum_types import EventType
-from ..enum_types import NoticeType
-from ..chat import Channel
-from ..chat import Tag
+from ..bot_events.event import Event
+from ..enum_types.event_type import EventType
+from ..enum_types.notice_type import NoticeType
+from ..chat.channel import Channel
+from ..chat.tag import Tag
 import string
 
 class NoticeEvent(Event):

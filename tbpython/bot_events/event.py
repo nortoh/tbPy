@@ -1,4 +1,4 @@
-from ..enum_types import EventType
+from ..enum_types.event_type import EventType
 
 class Event(object):
 

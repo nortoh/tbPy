@@ -1,9 +1,9 @@
 import asyncio
 import websockets
 import logging
-from .... import Channel
 
-from . import TwitchConnection
+from ...chat.channel import Channel
+from .twitch_conn import TwitchConnection
 
 class TwitchWS(TwitchConnection):
 

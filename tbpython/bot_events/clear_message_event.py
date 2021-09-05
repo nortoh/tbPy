@@ -1,9 +1,9 @@
-from ..bot_events import Event
-from ..enum_types import EventType
+from ..bot_events.event import Event
+from ..enum_types.event_type import EventType
 
-from ..chat import User
-from ..chat import Channel
-from ..chat import Tag
+from ..chat.user import User
+from ..chat.channel import Channel
+from ..chat.tag import Tag
 
 class ClearMessageEvent(Event):
 
