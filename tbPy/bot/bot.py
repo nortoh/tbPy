@@ -326,13 +326,18 @@ class Bot:
             
             config_file.write(formatted_json)
             config_file.close()
-            self.logger.info('config.json was generated in data/config.json\nPlease fill in a username and oauth key')
+            self.logger.info('config.json was generated in data/config.json')
+            self.logger.info('Please fill in a username and oauth key')
             os._exit(1)
         else:
             config_file = open(config_path, 'r')
             config_json_obj = json.load(config_file)
                 
         self.config = Config(**config_json_obj)
+
+        if not self.config.username or not self.config.oauth_key:
+            self.logger.error('Please fill in a username and oauth key')
+            exit(1)
 
     # Load built-in bot commands
     def load_builtin_commands(self):
