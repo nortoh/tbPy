@@ -326,7 +326,8 @@ class Bot:
             
             config_file.write(formatted_json)
             config_file.close()
-            self.logger.info('config.json was generated in data/config.json\nPlease fill in a username and oauth key')
+            self.logger.info('config.json was generated in data/config.json')
+            self.logger.info('Please fill in a username and oauth key')
             os._exit(1)
         else:
             config_file = open(config_path, 'r')
