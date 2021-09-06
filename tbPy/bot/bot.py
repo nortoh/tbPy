@@ -82,9 +82,6 @@ class Bot:
         self.reconnect_flag = False
         self.connected = False
 
-        # Start timers
-        self.start_timers()
-
     # async start bot        
     async def start_bot(self):
         self.logger.info(f'Starting bot v{self.lib_version}')
@@ -112,6 +109,9 @@ class Bot:
 
         # Set the time we successfully connected
         self.start_time = datetime.datetime.now()
+
+        # Start timers
+        self.start_timers()
 
         # Perform handshake
         await self.handshake()
