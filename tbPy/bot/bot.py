@@ -131,9 +131,16 @@ class Bot:
                 
         self.config = Config(**config_json_obj)
 
+        # Verify oauth
+        oauth = self.config.grab_setting('oauth_key').split(':')
+        if len(oauth) != 2:
+            self.logger.error('Incorrect oauth_key format')
+            os._exit(1)
+
+        # Verify username and oauth_key are provided
         if not self.config.grab_setting('username') or not self.config.grab_setting('oauth_key'):
             self.logger.error('Please fill in a username and oauth key')
-            exit(1)
+            os._exit(1)
 
     # async start bot        
     async def start_bot(self):
