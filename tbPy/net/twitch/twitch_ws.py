@@ -7,12 +7,9 @@ from .twitch_conn import TwitchConnection
 
 class TwitchWS(TwitchConnection):
 
-    def __init__(self, twitch_bot):
-
-        logging.basicConfig(
-            format='%(asctime)s %(levelname)-8s %(message)s',
-            level=logging.INFO,
-            datefmt='%Y-%m-%d %H:%M:%S')
+    def __init__(self, bot):
+        self.logger = logging.getLogger('main')
+        self.bot = bot
 
     async def connect(self):
         self.websocket = await websockets.connect("ws://irc-ws.chat.twitch.tv:80")
@@ -38,7 +35,7 @@ class TwitchWS(TwitchConnection):
                 await self.send_raw_message("JOIN " + channel)
             except Exception as e:
                 message, channel_name = e.args
-                logging.error(message + channel_name)
+                self.logger.error(message + channel_name)
 
     def join_channel_noasync(self, channel):
         if isinstance(channel, Channel):
@@ -51,7 +48,7 @@ class TwitchWS(TwitchConnection):
                 self.send_raw_message_noasync("JOIN " + channel)
             except Exception as e:
                 message, channel_name = e.args
-                logging.error(message + channel_name)
+                self.logger.error(message + channel_name)
 
     async def part_channel(self, channel):
         if isinstance(channel, Channel):
@@ -64,7 +61,7 @@ class TwitchWS(TwitchConnection):
                 await self.send_raw_message("PART " + channel)
             except Exception as e:
                 message, channel_name = e.args
-                logging.error(message + channel_name)
+                self.logger.error(message + channel_name)
 
     def part_channel_noasync(self, channel):
         if isinstance(channel, Channel):
@@ -77,7 +74,7 @@ class TwitchWS(TwitchConnection):
                 self.send_raw_message_noasync("PART " + channel)
             except Exception as e:
                 message, channel_name = e.args
-                logging.error(message + channel_name)
+                self.logger.error(message + channel_name)
 
     async def send_message(self, channel, message):
         if isinstance(channel, Channel):
@@ -90,7 +87,7 @@ class TwitchWS(TwitchConnection):
                 await self.send_raw_message("PRIVMSG " + channel + " :" + message)
             except Exception as e:
                 message, channel_name = e.args
-                logging.error(message + channel_name)
+                self.logger.error(message + channel_name)
     
     def send_message_noasync(self, channel, message):
         if isinstance(channel, Channel):
@@ -103,4 +100,4 @@ class TwitchWS(TwitchConnection):
                 self.send_raw_message_noasync("PRIVMSG " + channel + " :" + message)
             except Exception as e:
                 message, channel_name = e.args
-                logging.error(message + channel_name)
+                self.logger.error(message + channel_name)

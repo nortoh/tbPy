@@ -50,6 +50,7 @@ from ..types.irc_type import IRCType
 
 from ..net.twitch.twitch_irc import TwitchIRC
 from ..net.twitch.twitch_ws import TwitchWS
+from ..net.twitch.twitch_conn import TwitchConnection
 from jaraco.stream import buffer
 
 class Bot:
@@ -82,6 +83,58 @@ class Bot:
         self.reconnect_flag = False
         self.connected = False
 
+    # Load configuration 'config.json'
+    def load_configurations(self):
+
+        # Configuration name
+        config_folder = './data'
+        config_name = 'config.json'
+        config_path = path.join(config_folder, config_name)
+
+        if not os.path.isdir(config_folder):
+            os.mkdir(config_folder)
+
+        # Configuration template
+        config_json = """
+        {
+            "settings": {
+                "username":"",
+                "oauth_key":"",
+                "client_id":"",
+                "client_secret":"",
+                "conn_type":"sock",
+                "channels":[],
+                "bot_operators":[],
+                "command_trigger":"~",
+                "influx_db":true,
+                "verbose":true
+            }
+        }
+        """
+        
+        # If config does not exist, make a blank one. Otherwise, open current
+        if not path.exists(config_path):
+            config_file = open(config_path, 'w')
+            config_json_obj = json.loads(config_json)
+            
+            # prettify!
+            formatted_json = json.dumps(config_json_obj, indent=2)
+            
+            config_file.write(formatted_json)
+            config_file.close()
+            self.logger.info('config.json was generated in data/config.json')
+            self.logger.info('Please fill in a username and oauth key')
+            os._exit(1)
+        else:
+            config_file = open(config_path, 'r')
+            config_json_obj = json.load(config_file)
+                
+        self.config = Config(**config_json_obj)
+
+        if not self.config.grab_setting('username') or not self.config.grab_setting('oauth_key'):
+            self.logger.error('Please fill in a username and oauth key')
+            exit(1)
+
     # async start bot        
     async def start_bot(self):
         self.logger.info(f'Starting bot v{self.lib_version}')
@@ -97,13 +150,23 @@ class Bot:
 
     # Async connect to twitch
     async def connect_to_twitch(self):
-        self.logger.info(f'Connecting to Twitch [{self.config.username}]')
+        self.logger.info('Connecting to Twitch [{username}]'.format(username=self.config.grab_setting('username')))
 
-        # TCP socket and data stream
-        self.twitch_irc = TwitchIRC(self)
-        await self.twitch_irc.connect()
+        # Twitch connection 
+        conn_type = str(self.config.grab_setting('conn_type')).lower()
+        if conn_type == 'sock':
+            # Regular good ol IRC
+            self.twitch_conn = TwitchIRC(self)
+        elif conn_type == 'ws':
+            # More futuristic  
+            self.twitch_conn = TwitchWS(self)
+        else:
+            self.logger.error(f'Unknown conn_type in config.json: {conn_type}')
+            os._exit(1)
 
-        self.logger.info(f'Connected to Twitch')
+        await self.twitch_conn.connect()
+
+        self.logger.info('Connected to Twitch ({username})'.format(username=self.config.grab_setting('username')))
         
         self.running = True
 
@@ -117,14 +180,14 @@ class Bot:
         await self.handshake()
 
         # Join channels in configuration
-        for name in self.config.channels:
-            await self.twitch_irc.send(f'JOIN {name}')
+        for name in self.config.grab_setting('channels'):
+            await self.twitch_conn.send(f'JOIN {name}')
         
         # Loop and handle data
         while not self.reconnect_flag and self.running:
             try:
                 # Get data
-                new_data = await self.twitch_irc.receive()
+                new_data = await self.twitch_conn.receive()
 
                 # If data was empty
                 if not new_data:
@@ -143,7 +206,7 @@ class Bot:
                     if not line:
                         continue
 
-                    if self.config.verbose:
+                    if self.config.grab_setting('verbose'):
                         self.logger.info(f'Data: {line.decode()}')
 
                     await self.process_data(line.decode())
@@ -159,8 +222,8 @@ class Bot:
         
         # Close socket and set socket as None
         self.logger.warning('Closing socket')
-        self.twitch_irc.socket.close()
-        self.twitch_irc.socket = None
+        self.twitch_conn.socket.close()
+        self.twitch_conn.socket = None
         self.connected = False
 
         # Fire!
@@ -223,14 +286,14 @@ class Bot:
     async def handshake(self):
 
         # Send Twitch Authentication
-        await self.twitch_irc.send(f'PASS {self.config.oauth_key}')
-        await self.twitch_irc.send(f'NICK {self.config.username}')
-        await self.twitch_irc.send(f'USER {self.config.username} * * : {self.config.username}')
+        await self.twitch_conn.send('PASS {password}'.format(password=self.config.grab_setting('oauth_key')))
+        await self.twitch_conn.send('NICK {username}'.format(username=self.config.grab_setting('username')))
+        await self.twitch_conn.send('USER {username}'.format(username=self.config.grab_setting('username')))
 
         # Send Capabilities
-        await self.twitch_irc.send('CAP REQ :twitch.tv/commands')
-        await self.twitch_irc.send('CAP REQ :twitch.tv/tags')
-        await self.twitch_irc.send('CAP REQ :twitch.tv/membership')
+        await self.twitch_conn.send('CAP REQ :twitch.tv/commands')
+        await self.twitch_conn.send('CAP REQ :twitch.tv/tags')
+        await self.twitch_conn.send('CAP REQ :twitch.tv/membership')
 
     # Find a code from the irc data
     async def expect_code(self, irc_parameters, code):
@@ -290,55 +353,6 @@ class Bot:
             loop = asyncio.new_event_loop()
             loop.run_until_complete(self.connect_to_twitch())            
 
-    # Load configuration 'config.json'
-    def load_configurations(self):
-
-        # Configuration name
-        config_folder = './data'
-        config_name = 'config.json'
-        config_path = path.join(config_folder, config_name)
-
-        if not os.path.isdir(config_folder):
-            os.mkdir(config_folder)
-
-        # Configuration template
-        config_json = """
-        {
-            "username":"",
-            "oauth_key":"",
-            "client_id":"",
-            "client_secret":"",
-            "channels":[],
-            "bot_operators":[],
-            "command_trigger":"~",
-            "influx_db":true,
-            "verbose":true
-        }
-        """
-        
-        # If config does not exist, make a blank one. Otherwise, open current
-        if not path.exists(config_path):
-            config_file = open(config_path, 'w')
-            config_json_obj = json.loads(config_json)
-            
-            # prettify!
-            formatted_json = json.dumps(config_json_obj, indent=2)
-            
-            config_file.write(formatted_json)
-            config_file.close()
-            self.logger.info('config.json was generated in data/config.json')
-            self.logger.info('Please fill in a username and oauth key')
-            os._exit(1)
-        else:
-            config_file = open(config_path, 'r')
-            config_json_obj = json.load(config_file)
-                
-        self.config = Config(**config_json_obj)
-
-        if not self.config.username or not self.config.oauth_key:
-            self.logger.error('Please fill in a username and oauth key')
-            exit(1)
-
     # Load built-in bot commands
     def load_builtin_commands(self):
         pass
@@ -350,7 +364,7 @@ class Bot:
 
     # Returns a ping reply with a pong and fires it
     async def handle_pong(self, irc_parameters):
-        await self.twitch_irc.send("PONG :tmi.twitch.tv")
+        await self.twitch_conn.send("PONG :tmi.twitch.tv")
         self.event_handler.on_ping(PingEvent())
 
     # Builds a message event and fires it
@@ -370,7 +384,7 @@ class Bot:
             user.tag = tag # set the user tag for the private message instance
 
             # Bot Command
-            if str.startswith(message, self.config.command_trigger):
+            if str.startswith(message, self.config.grab_setting('command_trigger')):
                 parameters = ''
             
                 # Get command parameters
@@ -384,7 +398,7 @@ class Bot:
 
                 # Command message and event
                 command_message = CommandMessage(name, command_parameters, channel, user, time.time())
-                command_event = CommandEvent(user, channel, command_message, self.twitch_irc)
+                command_event = CommandEvent(user, channel, command_message, self.twitch_conn)
 
                 # Handle built-in commands
                 await self.handle_command(command_event)
@@ -412,7 +426,7 @@ class Bot:
             channel.add_user(user)
 
             # Bot Command
-            if str.startswith(message, self.config.command_trigger):
+            if str.startswith(message, self.config.grab_setting('command_trigger')):
                 command_parameters = ''
                 
                 # If parameters were given
@@ -425,7 +439,7 @@ class Bot:
 
                 # Build command message and event
                 command_message = CommandMessage(name, command_parameters, channel, user, time.time())
-                command_event = CommandEvent(user, channel, command_message, self.twitch_irc)
+                command_event = CommandEvent(user, channel, command_message, self.twitch_conn)
 
                 # Handle built-in commands
                 await self.handle_command(command_event)
@@ -503,7 +517,7 @@ class Bot:
         tag = Tag(irc_parameters[0])
 
         # Skip user notices if it's for the bots
-        if tag.get('display-name') == self.config.username: return
+        if tag.get('display-name') == self.config.grab_setting('username'): return
 
         channel = await self.get_channel(irc_parameters[3])
         sender = channel.get_user(tag.get('display-name'))
