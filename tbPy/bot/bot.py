@@ -133,7 +133,7 @@ class Bot:
 
         # Verify oauth using regex because we're big boys now
         oauth = self.config.grab_setting('oauth_key')
-        if not re.match(r'^oauth:[0-9]{30}', oauth):
+        if not re.match(r'^oauth:[A-Za-z0-9]{30}$', oauth):
             self.logger.error('Incorrect oauth_key format')
             os._exit(1)
 
