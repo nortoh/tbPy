@@ -10,7 +10,7 @@ import logging
 import datetime
 from datetime import date
 import socket
-
+import re
 
 from ..chat import Message
 from ..chat import CommandMessage
@@ -131,9 +131,9 @@ class Bot:
                 
         self.config = Config(**config_json_obj)
 
-        # Verify oauth
-        oauth = self.config.grab_setting('oauth_key').split(':')
-        if len(oauth) != 2:
+        # Verify oauth using regex because we're big boys now
+        oauth = self.config.grab_setting('oauth_key')
+        if not re.match(r'^oauth:[0-9]{30}', oauth):
             self.logger.error('Incorrect oauth_key format')
             os._exit(1)
 
