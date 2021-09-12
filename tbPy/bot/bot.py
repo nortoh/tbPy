@@ -748,7 +748,7 @@ class Bot:
         while start < end:
             result += str(data[start]) + " "
             start += 1
-        return result
+        return result.strip()
 
     # Return uptime
     def get_uptime(self):
